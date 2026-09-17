@@ -127,6 +127,34 @@
             </el-tag>
           </div>
         </el-tab-pane>
+
+        <el-tab-pane label="近期施药记录" name="applications">
+          <div class="tab-actions">
+            <el-button link type="primary" @click="goList('applications')">查看全部施药记录</el-button>
+          </div>
+          <el-table :data="recentApplications" size="small" empty-text="暂无施药记录"
+                    :row-class-name="applicationRowClass">
+            <el-table-column prop="application_no" label="编号" width="160" />
+            <el-table-column prop="application_date" label="施药日期" width="105" />
+            <el-table-column label="药剂" min-width="180" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.pesticide?.name || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="target_pest" label="防治对象" width="100" />
+            <el-table-column prop="dilution_ratio" label="稀释浓度" width="100" />
+            <el-table-column label="用药量" width="110">
+              <template #default="{ row }">{{ formatNumber(row.dosage) }} {{ row.unit_label }}</template>
+            </el-table-column>
+            <el-table-column prop="operator" label="施药人员" width="90" />
+            <el-table-column label="最早可进入" width="170">
+              <template #default="{ row }">
+                <span>{{ row.earliest_entry_date }}</span>
+                <EnumTag group="pesticide_safety_status" :value="row.safety_status"
+                         :label="row.safety_status === 'locked'
+                           ? `间隔期内 · 余 ${row.days_remaining} 天` : '可进入'" />
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -157,6 +185,7 @@ const statistics = ref({ task_status: {}, record_count: 0, total_work_hours: 0, 
 const recentTasks = ref([])
 const recentRecords = ref([])
 const recentReplacements = ref([])
+const recentApplications = ref([])
 const replacementSummary = ref([])
 
 const taskTotal = computed(() =>
@@ -172,6 +201,7 @@ async function load() {
     recentTasks.value = data.recent_tasks || []
     recentRecords.value = data.recent_records || []
     recentReplacements.value = data.recent_replacements || []
+    recentApplications.value = data.recent_applications || []
     replacementSummary.value = data.replacement_summary || []
   } finally {
     loading.value = false
@@ -182,10 +212,15 @@ const LIST_ROUTES = {
   tasks: 'task-list',
   records: 'record-list',
   replacements: 'replacement-list',
+  applications: 'application-list',
 }
 
 function goList(name) {
   router.push({ name: LIST_ROUTES[name], query: { green_space_id: route.params.id } })
+}
+
+function applicationRowClass({ row }) {
+  return row.safety_status === 'locked' ? 'row-locked' : ''
 }
 
 onMounted(load)

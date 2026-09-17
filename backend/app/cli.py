@@ -16,6 +16,9 @@ from .services import (
     GreenSpaceService,
     MaintenanceRecordService,
     MaintenanceTaskService,
+    PesticideApplicationService,
+    PesticideRequisitionService,
+    PesticideService,
     PlantReplacementService,
 )
 
@@ -164,6 +167,86 @@ WEATHERS = ["sunny", "cloudy", "overcast", "rain", "windy"]
 WORKERS = ["王海涛", "李建民", "张凤英", "吴国强", "何丽萍", "赵春生", "孙明华", "许娟"]
 SUPPLIERS = ["萧山苗木合作社", "临安绿源苗圃", "余杭花卉基地", "杭州城西园艺公司"]
 
+PESTICIDE_SEEDS = [
+    {
+        "name": "10% 吡虫啉可湿性粉剂",
+        "registration_no": "PD20181234",
+        "pesticide_type": "insecticide",
+        "toxicity": "low",
+        "active_ingredient": "吡虫啉 10%",
+        "formulation": "可湿性粉剂",
+        "manufacturer": "浙江新农化工股份有限公司",
+        "safety_interval_days": 7,
+        "stock_quantity": 48000,
+        "unit": "gram",
+    },
+    {
+        "name": "4.5% 高效氯氰菊酯乳油",
+        "registration_no": "PD20154321",
+        "pesticide_type": "insecticide",
+        "toxicity": "medium",
+        "active_ingredient": "高效氯氰菊酯 4.5%",
+        "formulation": "乳油",
+        "manufacturer": "江苏扬农化工股份有限公司",
+        "safety_interval_days": 14,
+        "stock_quantity": 12000,
+        "unit": "milliliter",
+    },
+    {
+        "name": "70% 甲基硫菌灵可湿性粉剂",
+        "registration_no": "PD20120876",
+        "pesticide_type": "fungicide",
+        "toxicity": "low",
+        "active_ingredient": "甲基硫菌灵 70%",
+        "formulation": "可湿性粉剂",
+        "manufacturer": "山东海讯生物科技有限公司",
+        "safety_interval_days": 10,
+        "stock_quantity": 26000,
+        "unit": "gram",
+    },
+    {
+        "name": "1.8% 阿维菌素乳油",
+        "registration_no": "PD20162288",
+        "pesticide_type": "acaricide",
+        "toxicity": "medium",
+        "active_ingredient": "阿维菌素 1.8%",
+        "formulation": "乳油",
+        "manufacturer": "河北威远生物化工有限公司",
+        "safety_interval_days": 14,
+        "stock_quantity": 8600,
+        "unit": "milliliter",
+    },
+    {
+        "name": "苏云金杆菌可湿性粉剂",
+        "registration_no": "PD20190666",
+        "pesticide_type": "biological",
+        "toxicity": "micro",
+        "active_ingredient": "苏云金杆菌 16000IU/mg",
+        "formulation": "可湿性粉剂",
+        "manufacturer": "武汉科诺生物科技股份有限公司",
+        "safety_interval_days": 3,
+        "stock_quantity": 15000,
+        "unit": "gram",
+    },
+    {
+        "name": "41% 草甘膦异丙胺盐水剂",
+        "registration_no": "PD20103455",
+        "pesticide_type": "herbicide",
+        "toxicity": "low",
+        "active_ingredient": "草甘膦异丙胺盐 41%",
+        "formulation": "水剂",
+        "manufacturer": "浙江新安化工集团股份有限公司",
+        "safety_interval_days": 21,
+        "stock_quantity": 0,
+        "unit": "milliliter",
+        "status": "phase_out",
+    },
+]
+
+PEST_TARGETS = ["蚜虫", "网蝽", "红蜘蛛", "白粉病", "蚧壳虫", "食叶害虫"]
+DILUTION_RATIOS = ["1:1000", "1:1500", "1:2000", "800 倍液", "1000 倍液"]
+EQUIPMENTS = ["背负式电动喷雾器", "车载式喷雾机", "超低容量喷雾器"]
+
 
 def register_cli(app):
     app.cli.add_command(init_db_command)
@@ -207,7 +290,9 @@ def seed_command(reset, seed_value):
     summary = generate_demo_data(random.Random(seed_value))
     click.echo(
         "演示数据写入完成：绿地 {green_space} 处、养护任务 {maintenance_task} 条、"
-        "养护记录 {maintenance_record} 条、绿植更换 {plant_replacement} 条".format(**summary)
+        "养护记录 {maintenance_record} 条、绿植更换 {plant_replacement} 条、"
+        "药剂档案 {pesticide} 个、药剂领用 {pesticide_requisition} 条、"
+        "施药记录 {pesticide_application} 条".format(**summary)
     )
 
 
@@ -220,7 +305,17 @@ def generate_demo_data(rng):
         "maintenance_task": 0,
         "maintenance_record": 0,
         "plant_replacement": 0,
+        "pesticide": 0,
+        "pesticide_requisition": 0,
+        "pesticide_application": 0,
     }
+
+    pesticides = []
+    for seed in PESTICIDE_SEEDS:
+        pesticides.append(PesticideService.create(dict(seed)))
+        counts["pesticide"] += 1
+    in_use_pesticides = [item for item in pesticides if item.status == "in_use"]
+    active_spaces = []
 
     for index, space_seed in enumerate(SPACE_SEEDS):
         payload = dict(space_seed)
@@ -230,6 +325,8 @@ def generate_demo_data(rng):
         # 已归档绿地不允许再登记任务与记录，仅保留台账
         if space.status == "archived":
             continue
+        active_spaces.append(space)
+        pest_records = []
 
         for _ in range(rng.randint(2, 4)):
             task_type, title, priority, executor, description = rng.choice(TASK_SEEDS)
@@ -268,6 +365,8 @@ def generate_demo_data(rng):
                 "issue_found": "局部色块缺株，已列入下月补植计划" if quality == "unqualified" else None,
             })
             counts["maintenance_record"] += 1
+            if task_type == "pest":
+                pest_records.append(record)
 
             replace_chance = 0.85 if task_type in {"replant", "pest", "prune"} else 0.35
             if rng.random() < replace_chance:
@@ -307,6 +406,84 @@ def generate_demo_data(rng):
                 "quality_result": "qualified",
             })
             counts["maintenance_record"] += 1
+
+        # 药剂施用与领用：约六成绿地生成 1~2 条施药记录，领用先于施药登记
+        space_applications = []
+        for _ in range(rng.choice([0, 1, 1, 2])):
+            pesticide = rng.choice(in_use_pesticides)
+            app_date = today_ - timedelta(days=rng.randint(20, 120))
+            linked_record = (
+                rng.choice(pest_records) if pest_records and rng.random() < 0.7 else None
+            )
+            dosage = float(rng.choice([200, 300, 400, 500, 600, 800]))
+            requisition = PesticideRequisitionService.create({
+                "pesticide_id": pesticide.id,
+                "quantity": dosage,
+                "recipient": rng.choice(WORKERS),
+                "issue_date": app_date - timedelta(days=rng.randint(0, 2)),
+                "purpose": f"{space.name}{rng.choice(PEST_TARGETS)}防治用药",
+                "operator": "仓管员 " + rng.choice(WORKERS),
+            })
+            counts["pesticide_requisition"] += 1
+            application = PesticideApplicationService.create({
+                "pesticide_id": pesticide.id,
+                "green_space_id": space.id,
+                "maintenance_record_id": linked_record.id if linked_record else None,
+                "application_date": app_date,
+                "target_pest": rng.choice(PEST_TARGETS),
+                "apply_area": rng.choice([1200, 2400, 3200, 4800, 6000]),
+                "dilution_ratio": rng.choice(DILUTION_RATIOS),
+                "dosage": dosage,
+                "operator": rng.choice(WORKERS),
+                "equipment": rng.choice(EQUIPMENTS),
+                "remark": "避开人流高峰时段作业，设置警示标识。",
+            }, force=True)
+            counts["pesticide_application"] += 1
+            space_applications.append(application)
+
+    # 选两处绿地补登近期施药（间隔期内），供看板与列表展示安全管控状态
+    for space in active_spaces[:2]:
+        pesticide = in_use_pesticides[0]
+        app_date = today_ - timedelta(days=rng.randint(1, 3))
+        PesticideRequisitionService.create({
+            "pesticide_id": pesticide.id,
+            "quantity": 400,
+            "recipient": rng.choice(WORKERS),
+            "issue_date": app_date,
+            "purpose": f"{space.name}蚜虫应急补防用药",
+            "operator": "仓管员 沈慧",
+        })
+        counts["pesticide_requisition"] += 1
+        PesticideApplicationService.create({
+            "pesticide_id": pesticide.id,
+            "green_space_id": space.id,
+            "application_date": app_date,
+            "target_pest": "蚜虫",
+            "apply_area": 3200,
+            "dilution_ratio": "1:1500",
+            "dosage": 400,
+            "operator": rng.choice(WORKERS),
+            "equipment": rng.choice(EQUIPMENTS),
+            "remark": "巡查发现蚜虫虫口回升，间隔期内补防，已现场确认风险并设置围挡。",
+        }, force=True)
+        counts["pesticide_application"] += 1
+
+    # 一条已退库领用记录（先走发放再办理退库），覆盖领用全生命周期
+    if in_use_pesticides and active_spaces:
+        issue_date = today_ - timedelta(days=18)
+        returned_requisition = PesticideRequisitionService.create({
+            "pesticide_id": in_use_pesticides[2].id,
+            "quantity": 300,
+            "recipient": WORKERS[2],
+            "issue_date": issue_date,
+            "purpose": f"{active_spaces[-1].name}白粉病防治备药（未用完退库）",
+            "operator": "仓管员 沈慧",
+        })
+        PesticideRequisitionService.register_return(returned_requisition.id, {
+            "returned_quantity": 80,
+            "returned_at": issue_date + timedelta(days=1),
+        })
+        counts["pesticide_requisition"] += 1
 
     # 一条已取消任务，覆盖全部状态场景
     first_space = db.session.query(GreenSpace).order_by(GreenSpace.id.asc()).first()

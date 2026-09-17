@@ -53,11 +53,15 @@ class BaseService:
         """字段全部赋值后做派生计算（金额、完成时间等），子类覆盖。"""
 
     @classmethod
-    def after_create(cls, instance, payload):
+    def before_flush(cls, instance, payload, **options):
+        """flush 前的最终业务校验（如需人工确认的冲突），子类覆盖。"""
+
+    @classmethod
+    def after_create(cls, instance, payload, **options):
         """同一事务内的跨模块联动，子类覆盖。"""
 
     @classmethod
-    def after_update(cls, instance, payload):
+    def after_update(cls, instance, payload, **options):
         """更新后的联动，子类覆盖。"""
 
     @classmethod
@@ -65,7 +69,7 @@ class BaseService:
         """删除后的联动，子类覆盖。"""
 
     @classmethod
-    def create(cls, data):
+    def create(cls, data, **options):
         data = dict(data)
         provided_code = bool(data.get(cls.code_field)) if cls.code_field else False
         attempts = 1 if provided_code else cls.MAX_CODE_RETRY
@@ -79,6 +83,7 @@ class BaseService:
             instance = cls.model(**payload)
             cls.prepare_instance(instance, payload)
             cls.apply_derived(instance)
+            cls.before_flush(instance, payload, **options)
             db.session.add(instance)
             try:
                 db.session.flush()
@@ -91,14 +96,14 @@ class BaseService:
                     ) from exc
                 continue
 
-            cls.after_create(instance, payload)
+            cls.after_create(instance, payload, **options)
             db.session.commit()
             return instance
 
         raise ConflictError(f"{cls.label}编号生成冲突，请稍后重试") from last_error
 
     @classmethod
-    def update(cls, obj_id, data):
+    def update(cls, obj_id, data, **options):
         instance = cls.get(obj_id)
         payload = dict(data)
         if cls.code_field:
@@ -109,12 +114,13 @@ class BaseService:
         for field, value in payload.items():
             setattr(instance, field, value)
         cls.apply_derived(instance)
+        cls.before_flush(instance, payload, **options)
         try:
             db.session.flush()
         except IntegrityError as exc:
             db.session.rollback()
             raise ConflictError(f"{cls.label}数据与已有记录冲突") from exc
-        cls.after_update(instance, payload)
+        cls.after_update(instance, payload, **options)
         db.session.commit()
         return instance
 

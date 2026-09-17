@@ -16,6 +16,16 @@
           <el-icon><component :is="item.icon" /></el-icon>
           <template #title>{{ item.title }}</template>
         </el-menu-item>
+        <el-sub-menu index="pesticide">
+          <template #title>
+            <el-icon><FirstAidKit /></el-icon>
+            <span>药剂管理</span>
+          </template>
+          <el-menu-item v-for="item in pesticideMenuItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
 
@@ -67,6 +77,12 @@ const menuItems = [
   { path: '/tasks', title: '养护任务', icon: 'Tickets' },
   { path: '/records', title: '养护记录', icon: 'Notebook' },
   { path: '/replacements', title: '绿植更换', icon: 'Cherry' },
+]
+
+const pesticideMenuItems = [
+  { path: '/pesticides', title: '药剂档案', icon: 'FirstAidKit' },
+  { path: '/pesticide-requisitions', title: '药剂领用', icon: 'Goods' },
+  { path: '/pesticide-applications', title: '施药记录', icon: 'Aim' },
 ]
 
 const activeMenu = computed(() => route.meta?.activeMenu || route.path)

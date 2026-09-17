@@ -99,3 +99,33 @@ body {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* 安全间隔期重复施药预警弹窗（MessageBox 渲染到 body，需用全局样式） */
+.pesticide-warning {
+  margin: 0;
+  text-align: left;
+  line-height: 1.7;
+}
+
+.pesticide-warning__lead {
+  margin: 0 0 10px;
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.pesticide-warning__list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.pesticide-warning__foot {
+  margin: 0;
+  color: #f56c6c;
+  font-size: 13px;
+}
+
+.el-message-box__message .pesticide-warning ul {
+  padding-left: 20px;
+}

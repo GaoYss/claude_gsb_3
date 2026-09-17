@@ -52,6 +52,34 @@
       />
     </div>
 
+    <div v-if="pesticideSafety.locked_count" class="panel pesticide-alert">
+      <div class="table-toolbar">
+        <span class="panel-title">
+          <el-icon class="pesticide-alert__icon"><Lock /></el-icon>
+          安全间隔期内区域（{{ pesticideSafety.locked_count }} 处，禁止人员进入）
+        </span>
+        <el-link type="warning" :underline="false" @click="router.push('/pesticide-applications')">
+          进入施药记录
+        </el-link>
+      </div>
+      <el-table :data="pesticideSafety.items" size="small">
+        <el-table-column label="施药区域" min-width="150">
+          <template #default="{ row }">{{ row.green_space?.name || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="药剂" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.pesticide?.name || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="application_date" label="施药日期" width="105" />
+        <el-table-column prop="earliest_entry_date" label="最早可进入时间" width="135" />
+        <el-table-column label="状态" width="150">
+          <template #default="{ row }">
+            <EnumTag group="pesticide_safety_status" value="locked"
+                     :label="`间隔期内 · 余 ${row.days_remaining} 天`" />
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <div class="chart-grid">
       <ChartPanel title="近半年养护记录与工时" hint="柱：记录条数，折线：工时" :option="trendChart" />
       <ChartPanel title="绿地类型分布" hint="按绿地处数" :option="typeChart" />
@@ -189,10 +217,12 @@ function emptyDashboard() {
     overdue_tasks: [],
     upcoming_tasks: [],
     recent_activity: { records: [], replacements: [] },
+    pesticide_safety: { locked_count: 0, items: [] },
   }
 }
 
 const overview = computed(() => dashboard.value.overview)
+const pesticideSafety = computed(() => dashboard.value.pesticide_safety || { locked_count: 0, items: [] })
 
 const trendChart = computed(() => trendOption(dashboard.value.trends || []))
 
@@ -245,6 +275,16 @@ onMounted(load)
 </script>
 
 <style scoped>
+.pesticide-alert {
+  border-left: 3px solid #f56c6c;
+}
+
+.pesticide-alert__icon {
+  color: #f56c6c;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
 .dashboard-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));

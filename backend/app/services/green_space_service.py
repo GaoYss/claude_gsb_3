@@ -5,7 +5,13 @@ from sqlalchemy import and_, func, or_
 from ..constants import ENUM_GROUPS, GREEN_SPACE_STATUS
 from ..errors import ConflictError
 from ..extensions import db
-from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, PlantReplacement
+from ..models import (
+    GreenSpace,
+    MaintenanceRecord,
+    MaintenanceTask,
+    PesticideApplication,
+    PlantReplacement,
+)
 from ..models.maintenance_task import OPEN_STATUSES
 from ..utils.dates import format_date, today
 from ..utils.numbers import to_float
@@ -98,6 +104,12 @@ class GreenSpaceService(BaseService):
             .correlate(GreenSpace)
             .scalar_subquery()
         )
+        application_count = (
+            db.select(func.count(PesticideApplication.id))
+            .where(PesticideApplication.green_space_id == GreenSpace.id)
+            .correlate(GreenSpace)
+            .scalar_subquery()
+        )
 
         query = db.session.query(
             GreenSpace,
@@ -106,6 +118,7 @@ class GreenSpaceService(BaseService):
             record_count.label("record_count"),
             replacement_count.label("replacement_count"),
             last_maintenance.label("last_maintenance_date"),
+            application_count.label("pesticide_application_count"),
         )
         query = cls._apply_filters(query, filters)
         query = query.order_by(parse_sort(args, cls.SORTABLE, GreenSpace.code.asc()))
@@ -113,13 +126,22 @@ class GreenSpaceService(BaseService):
 
     @classmethod
     def serialize_row(cls, row):
-        space, task_count, open_task_count, record_count, replacement_count, last_date = row
+        (
+            space,
+            task_count,
+            open_task_count,
+            record_count,
+            replacement_count,
+            last_date,
+            application_count,
+        ) = row
         data = space.to_dict()
         data["statistics"] = {
             "task_count": task_count or 0,
             "open_task_count": open_task_count or 0,
             "record_count": record_count or 0,
             "replacement_count": replacement_count or 0,
+            "pesticide_application_count": application_count or 0,
             "last_maintenance_date": format_date(last_date),
         }
         return data
@@ -215,6 +237,13 @@ class GreenSpaceService(BaseService):
             .limit(5)
             .all()
         )
+        recent_applications = (
+            db.session.query(PesticideApplication)
+            .filter(PesticideApplication.green_space_id == space.id)
+            .order_by(PesticideApplication.application_date.desc(), PesticideApplication.id.desc())
+            .limit(5)
+            .all()
+        )
 
         return {
             "green_space": space.to_dict(detail=True),
@@ -243,6 +272,7 @@ class GreenSpaceService(BaseService):
             "recent_tasks": [item.to_dict() for item in recent_tasks],
             "recent_records": [item.to_dict() for item in recent_records],
             "recent_replacements": [item.to_dict() for item in recent_replacements],
+            "recent_applications": [item.to_dict() for item in recent_applications],
         }
 
     # ------------------------------------------------------------ 写入
@@ -262,11 +292,16 @@ class GreenSpaceService(BaseService):
             .filter(PlantReplacement.green_space_id == space.id)
             .scalar()
             or 0,
+            "pesticide_application": db.session.query(func.count(PesticideApplication.id))
+            .filter(PesticideApplication.green_space_id == space.id)
+            .scalar()
+            or 0,
         }
         if sum(counts.values()) and not force:
             raise ConflictError(
                 "该绿地已存在养护任务 {maintenance_task} 条、养护记录 {maintenance_record} 条、"
-                "绿植更换记录 {plant_replacement} 条，删除将一并清除，请确认后重试".format(**counts),
+                "绿植更换记录 {plant_replacement} 条、施药记录 {pesticide_application} 条，"
+                "删除将一并清除，请确认后重试".format(**counts),
                 details=counts,
             )
         db.session.delete(space)

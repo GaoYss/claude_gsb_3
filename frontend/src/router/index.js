@@ -44,6 +44,24 @@ const routes = [
         component: () => import('@/views/replacement/ReplacementListView.vue'),
         meta: { title: '绿植更换', icon: 'Cherry' },
       },
+      {
+        path: 'pesticides',
+        name: 'pesticide-list',
+        component: () => import('@/views/pesticide/PesticideListView.vue'),
+        meta: { title: '药剂档案', icon: 'FirstAidKit' },
+      },
+      {
+        path: 'pesticide-requisitions',
+        name: 'requisition-list',
+        component: () => import('@/views/pesticide/RequisitionListView.vue'),
+        meta: { title: '药剂领用', icon: 'Goods' },
+      },
+      {
+        path: 'pesticide-applications',
+        name: 'application-list',
+        component: () => import('@/views/pesticide/ApplicationListView.vue'),
+        meta: { title: '施药记录', icon: 'Aim' },
+      },
     ],
   },
   {

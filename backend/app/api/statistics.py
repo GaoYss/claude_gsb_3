@@ -49,9 +49,10 @@ def ranking():
 
 @bp.get("/statistics/reminders")
 def reminders():
-    """逾期与即将到期的养护任务提醒。"""
+    """逾期/即将到期任务提醒，以及安全间隔期内区域提醒。"""
 
     return ok({
         "overdue": StatisticsService.overdue_tasks(),
         "upcoming": StatisticsService.upcoming_tasks(),
+        "pesticide_safety": StatisticsService.pesticide_safety(),
     })

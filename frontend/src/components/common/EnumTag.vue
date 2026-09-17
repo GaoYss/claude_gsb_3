@@ -21,6 +21,10 @@ const TAG_TYPES = {
   quality_result: { qualified: 'success', pending: 'warning', unqualified: 'danger' },
   maintenance_grade: { level1: 'success', level2: 'primary', level3: 'info' },
   replacement_reason: { dead: 'danger', disease: 'warning', aging: 'info', upgrade: 'primary' },
+  pesticide_toxicity: { micro: 'success', low: 'primary', medium: 'warning', high: 'danger' },
+  pesticide_status: { in_use: 'success', phase_out: 'info', banned: 'danger' },
+  requisition_status: { issued: 'primary', returned: 'info' },
+  pesticide_safety_status: { locked: 'danger', releasable: 'success' },
 }
 
 const meta = useMetaStore()

@@ -2,11 +2,18 @@
 
 from datetime import timedelta
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 
 from ..constants import ENUM_GROUPS
 from ..extensions import db
-from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, PlantReplacement
+from ..models import (
+    GreenSpace,
+    MaintenanceRecord,
+    MaintenanceTask,
+    Pesticide,
+    PesticideApplication,
+    PlantReplacement,
+)
 from ..models.maintenance_task import OPEN_STATUSES
 from ..utils.dates import today
 from ..utils.numbers import to_float
@@ -385,6 +392,38 @@ class StatisticsService:
             "replacements": [item.to_dict() for item in replacements],
         }
 
+    # ------------------------------------------------------------ 药剂安全提醒
+    @staticmethod
+    def pesticide_safety(limit=10):
+        """当前仍处于安全间隔期内的施药记录，按最早可进入时间升序。
+
+        按各药剂的间隔天数分组构造日期条件，兼容 SQLite 与 PostgreSQL。
+        """
+
+        current = today()
+        interval_days = [
+            row[0]
+            for row in db.session.query(Pesticide.safety_interval_days).distinct().all()
+        ]
+        clauses = []
+        for days in interval_days:
+            clauses.append(and_(
+                Pesticide.safety_interval_days == days,
+                PesticideApplication.application_date > current - timedelta(days=days),
+            ))
+
+        query = (
+            db.session.query(PesticideApplication)
+            .join(Pesticide, PesticideApplication.pesticide_id == Pesticide.id)
+        )
+        locked_rows = query.filter(or_(*clauses)).all() if clauses else []
+        locked_rows.sort(key=lambda item: (item.earliest_entry_date, item.id))
+        items = locked_rows[:limit]
+        return {
+            "locked_count": len(locked_rows),
+            "items": [item.to_dict() for item in items],
+        }
+
     # ------------------------------------------------------------ 汇总入口
     @staticmethod
     def dashboard(months=6):
@@ -398,4 +437,5 @@ class StatisticsService:
             "overdue_tasks": StatisticsService.overdue_tasks(),
             "upcoming_tasks": StatisticsService.upcoming_tasks(),
             "recent_activity": StatisticsService.recent_activity(),
+            "pesticide_safety": StatisticsService.pesticide_safety(),
         }

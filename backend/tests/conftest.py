@@ -1,13 +1,14 @@
 """测试夹具：内存 SQLite + 常用业务数据工厂。"""
 
 import random
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from app import create_app
 from app.config import TestConfig
 from app.extensions import db
+from app.utils.dates import today
 
 
 @pytest.fixture()
@@ -146,6 +147,72 @@ def make_replacement(make_space):
             payload["maintenance_record_id"] = record.id
         payload.update(overrides)
         return PlantReplacementService.create(payload)
+
+    return _make
+
+
+@pytest.fixture()
+def make_pesticide():
+    from app.services import PesticideService
+
+    counter = {"n": 0}
+
+    def _make(**overrides):
+        counter["n"] += 1
+        payload = {
+            "name": f"测试药剂{counter['n']}",
+            "pesticide_type": "insecticide",
+            "toxicity": "low",
+            "active_ingredient": "吡虫啉",
+            "safety_interval_days": 7,
+            "stock_quantity": 5000,
+            "unit": "milliliter",
+        }
+        payload.update(overrides)
+        return PesticideService.create(payload)
+
+    return _make
+
+
+@pytest.fixture()
+def make_requisition(make_pesticide):
+    from app.services import PesticideRequisitionService
+
+    def _make(pesticide=None, **overrides):
+        pesticide = pesticide or make_pesticide()
+        payload = {
+            "pesticide_id": pesticide.id,
+            "quantity": 500,
+            "recipient": "王海涛",
+            "issue_date": today() - timedelta(days=1),
+            "purpose": "测试领用",
+        }
+        payload.update(overrides)
+        return PesticideRequisitionService.create(payload)
+
+    return _make
+
+
+@pytest.fixture()
+def make_application(make_pesticide, make_space):
+    from app.services import PesticideApplicationService
+
+    def _make(pesticide=None, space=None, **overrides):
+        pesticide = pesticide or make_pesticide()
+        space = space or make_space()
+        payload = {
+            "pesticide_id": pesticide.id,
+            "green_space_id": space.id,
+            "application_date": today() - timedelta(days=2),
+            "target_pest": "蚜虫",
+            "apply_area": 3000,
+            "dilution_ratio": "1:1500",
+            "dosage": 300,
+            "operator": "王海涛",
+            "equipment": "背负式电动喷雾器",
+        }
+        payload.update(overrides)
+        return PesticideApplicationService.create(payload, force=True)
 
     return _make
 

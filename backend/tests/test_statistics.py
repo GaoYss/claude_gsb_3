@@ -79,8 +79,12 @@ def test_dashboard_returns_all_sections(api, seeded):
     data = api.data(api.get("/api/v1/statistics/dashboard"))
     assert set(data) == {
         "overview", "distributions", "trends", "ranking",
-        "overdue_tasks", "upcoming_tasks", "recent_activity",
+        "overdue_tasks", "upcoming_tasks", "recent_activity", "pesticide_safety",
     }
     assert len(data["trends"]) == 6
     assert data["recent_activity"]["records"]
     assert data["recent_activity"]["replacements"]
+    assert data["pesticide_safety"]["locked_count"] >= 1
+    assert data["pesticide_safety"]["items"]
+    for item in data["pesticide_safety"]["items"]:
+        assert item["safety_status"] == "locked"

@@ -110,3 +110,55 @@ def replacement_filters(args):
     filters["date_from"] = _date(args, "date_from")
     filters["date_to"] = _date(args, "date_to")
     return filters
+
+
+def pesticide_filters(args):
+    filters = {}
+    for key, group_key in (
+        ("pesticide_type", "pesticide_type"),
+        ("toxicity", "pesticide_toxicity"),
+        ("status", "pesticide_status"),
+    ):
+        value = _enum(args, key, group_key)
+        if value:
+            filters[key] = value
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    return filters
+
+
+def requisition_filters(args):
+    filters = {}
+    pesticide_id = _int(args, "pesticide_id")
+    if pesticide_id:
+        filters["pesticide_id"] = pesticide_id
+    status = _enum(args, "status", "requisition_status")
+    if status:
+        filters["status"] = status
+    recipient = _text(args, "recipient")
+    if recipient:
+        filters["recipient"] = recipient
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    filters["date_from"] = _date(args, "date_from")
+    filters["date_to"] = _date(args, "date_to")
+    return filters
+
+
+def application_filters(args):
+    filters = {}
+    for key in ("pesticide_id", "green_space_id", "maintenance_record_id"):
+        value = _int(args, key)
+        if value:
+            filters[key] = value
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    safety_status = _text(args, "safety_status")
+    if safety_status in {"locked", "releasable"}:
+        filters["safety_status"] = safety_status
+    filters["date_from"] = _date(args, "date_from")
+    filters["date_to"] = _date(args, "date_to")
+    return filters

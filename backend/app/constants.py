@@ -130,6 +130,49 @@ MEASURE_UNIT = EnumGroup("measure_unit", [
     ("clump", "丛"),
 ])
 
+# ---------------------------------------------------------------- 药剂管理
+PESTICIDE_TYPE = EnumGroup("pesticide_type", [
+    ("insecticide", "杀虫剂"),
+    ("fungicide", "杀菌剂"),
+    ("herbicide", "除草剂"),
+    ("acaricide", "杀螨剂"),
+    ("plant_growth", "植物生长调节剂"),
+    ("biological", "生物农药"),
+    ("other", "其他药剂"),
+])
+
+PESTICIDE_TOXICITY = EnumGroup("pesticide_toxicity", [
+    ("micro", "微毒"),
+    ("low", "低毒"),
+    ("medium", "中等毒"),
+    ("high", "高毒"),
+])
+
+PESTICIDE_STATUS = EnumGroup("pesticide_status", [
+    ("in_use", "在用"),
+    ("phase_out", "停用待处理"),
+    ("banned", "禁用药剂"),
+])
+
+REQUISITION_STATUS = EnumGroup("requisition_status", [
+    ("issued", "已发放"),
+    ("returned", "已退库"),
+])
+
+PESTICIDE_UNIT = EnumGroup("pesticide_unit", [
+    ("milliliter", "毫升"),
+    ("liter", "升"),
+    ("gram", "克"),
+    ("kilogram", "千克"),
+    ("bottle", "瓶"),
+    ("bag", "袋"),
+])
+
+PESTICIDE_SAFETY_STATUS = EnumGroup("pesticide_safety_status", [
+    ("locked", "间隔期内"),
+    ("releasable", "可进入"),
+])
+
 # 前端下拉与文档共用的一份字典清单
 ENUM_GROUPS = {
     "green_space_type": GREEN_SPACE_TYPE,
@@ -144,6 +187,12 @@ ENUM_GROUPS = {
     "replacement_reason": REPLACEMENT_REASON,
     "old_plant_status": OLD_PLANT_STATUS,
     "measure_unit": MEASURE_UNIT,
+    "pesticide_type": PESTICIDE_TYPE,
+    "pesticide_toxicity": PESTICIDE_TOXICITY,
+    "pesticide_status": PESTICIDE_STATUS,
+    "requisition_status": REQUISITION_STATUS,
+    "pesticide_unit": PESTICIDE_UNIT,
+    "pesticide_safety_status": PESTICIDE_SAFETY_STATUS,
 }
 
 
