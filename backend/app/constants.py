@@ -130,6 +130,72 @@ MEASURE_UNIT = EnumGroup("measure_unit", [
     ("clump", "丛"),
 ])
 
+# ---------------------------------------------------------------- 药剂管理
+PESTICIDE_TYPE = EnumGroup("pesticide_type", [
+    ("insecticide", "杀虫剂"),
+    ("fungicide", "杀菌剂"),
+    ("herbicide", "除草剂"),
+    ("acaricide", "杀螨剂"),
+    ("plant_growth", "植物生长调节剂"),
+    ("biological", "生物农药"),
+    ("other", "其他药剂"),
+])
+
+PESTICIDE_TOXICITY = EnumGroup("pesticide_toxicity", [
+    ("micro", "微毒"),
+    ("low", "低毒"),
+    ("medium", "中等毒"),
+    ("high", "高毒"),
+    ("very_high", "剧毒"),
+])
+
+PESTICIDE_FORM = EnumGroup("pesticide_form", [
+    ("ec", "乳油"),
+    ("sc", "悬浮剂"),
+    ("wp", "可湿性粉剂"),
+    ("wg", "水分散粒剂"),
+    ("sl", "水剂"),
+    ("gr", "颗粒剂"),
+    ("dp", "粉剂"),
+    ("ol", "油剂"),
+    ("other", "其他剂型"),
+])
+
+# 药剂出入库方向：入库补充库存，领用出库扣减库存
+STOCK_MOVEMENT_TYPE = EnumGroup("stock_movement_type", [
+    ("in", "入库"),
+    ("out", "领用出库"),
+])
+
+# 药剂计量单位：库存、领用与用药量共用同一口径
+PESTICIDE_UNIT = EnumGroup("pesticide_unit", [
+    ("bottle", "瓶"),
+    ("bag", "袋"),
+    ("box", "包"),
+    ("can", "桶"),
+    ("kg", "千克"),
+    ("g", "克"),
+    ("liter", "升"),
+    ("ml", "毫升"),
+])
+
+# 施药方式
+APPLICATION_METHOD = EnumGroup("application_method", [
+    ("spray", "喷雾"),
+    ("dusting", "喷粉"),
+    ("soil", "土壤处理"),
+    ("injection", "树干注射"),
+    ("bait", "毒饵"),
+    ("fumigation", "熏蒸"),
+    ("other", "其他方式"),
+])
+
+# 施药记录的安全状态：用于列表与看板高亮间隔期风险
+APPLICATION_STATUS = EnumGroup("application_status", [
+    ("within_interval", "安全间隔期内"),
+    ("releasable", "可进入"),
+])
+
 # 前端下拉与文档共用的一份字典清单
 ENUM_GROUPS = {
     "green_space_type": GREEN_SPACE_TYPE,
@@ -144,6 +210,13 @@ ENUM_GROUPS = {
     "replacement_reason": REPLACEMENT_REASON,
     "old_plant_status": OLD_PLANT_STATUS,
     "measure_unit": MEASURE_UNIT,
+    "pesticide_type": PESTICIDE_TYPE,
+    "pesticide_toxicity": PESTICIDE_TOXICITY,
+    "pesticide_form": PESTICIDE_FORM,
+    "pesticide_unit": PESTICIDE_UNIT,
+    "stock_movement_type": STOCK_MOVEMENT_TYPE,
+    "application_method": APPLICATION_METHOD,
+    "application_status": APPLICATION_STATUS,
 }
 
 

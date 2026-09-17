@@ -151,6 +151,77 @@ def make_replacement(make_space):
 
 
 @pytest.fixture()
+def make_pesticide():
+    from app.services import PesticideService
+
+    counter = {"n": 0}
+
+    def _make(**overrides):
+        counter["n"] += 1
+        payload = {
+            "name": f"测试药剂{counter['n']}",
+            "pesticide_type": "insecticide",
+            "toxicity": "low",
+            "form": "wp",
+            "active_ingredient": "有效成分 10%",
+            "unit": "bag",
+            "stock_quantity": 100,
+            "stock_low_threshold": 10,
+            "safety_interval_days": 7,
+            "target_pests": "蚜虫",
+        }
+        payload.update(overrides)
+        return PesticideService.create(payload)
+
+    return _make
+
+
+@pytest.fixture()
+def make_stock_movement(make_pesticide):
+    from app.services import PesticideStockMovementService
+
+    def _make(pesticide=None, **overrides):
+        pesticide = pesticide or make_pesticide()
+        payload = {
+            "pesticide_id": pesticide.id,
+            "movement_type": "in",
+            "quantity": 20,
+            "movement_date": date(2026, 3, 1),
+            "receiver": "孙明华",
+            "operator": "孙明华",
+        }
+        payload.update(overrides)
+        return PesticideStockMovementService.create(payload)
+
+    return _make
+
+
+@pytest.fixture()
+def make_application(make_pesticide, make_space):
+    from app.services import PesticideApplicationService
+
+    def _make(space=None, pesticide=None, confirm=False, **overrides):
+        space = space or make_space()
+        pesticide = pesticide or make_pesticide()
+        payload = {
+            "green_space_id": space.id,
+            "pesticide_id": pesticide.id,
+            "application_date": date(2026, 3, 12),
+            "application_time": None,
+            "target_pest": "蚜虫",
+            "application_method": "spray",
+            "dilution_ratio": "1:1500",
+            "dosage": 3,
+            "treated_area": 1200,
+            "operator": "吴国强",
+        }
+        payload.update(overrides)
+        return PesticideApplicationService.create_application(payload, confirm=confirm)
+
+    return _make
+
+
+@pytest.fixture()
 def seeded(app):
     """写入演示数据（固定随机种子，保证断言稳定）。"""
 

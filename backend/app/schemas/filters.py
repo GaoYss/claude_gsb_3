@@ -110,3 +110,54 @@ def replacement_filters(args):
     filters["date_from"] = _date(args, "date_from")
     filters["date_to"] = _date(args, "date_to")
     return filters
+
+
+def pesticide_filters(args):
+    filters = {}
+    for key, group_key in (("pesticide_type", "pesticide_type"), ("toxicity", "pesticide_toxicity")):
+        value = _enum(args, key, group_key)
+        if value:
+            filters[key] = value
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    filters["low_stock"] = _flag(args, "low_stock")
+    return filters
+
+
+def stock_movement_filters(args):
+    filters = {}
+    for key in ("pesticide_id", "green_space_id"):
+        value = _int(args, key)
+        if value:
+            filters[key] = value
+    value = _enum(args, "movement_type", "stock_movement_type")
+    if value:
+        filters["movement_type"] = value
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    filters["date_from"] = _date(args, "date_from")
+    filters["date_to"] = _date(args, "date_to")
+    return filters
+
+
+def application_filters(args):
+    filters = {}
+    for key in ("green_space_id", "pesticide_id"):
+        value = _int(args, key)
+        if value:
+            filters[key] = value
+    value = _enum(args, "application_method", "application_method")
+    if value:
+        filters["application_method"] = value
+    keyword = _text(args, "keyword")
+    if keyword:
+        filters["keyword"] = keyword
+    filters["date_from"] = _date(args, "date_from")
+    filters["date_to"] = _date(args, "date_to")
+    # interval_status=within 仅看仍在安全间隔期内的施药
+    interval_status = _text(args, "interval_status")
+    if interval_status in {"within", "releasable"}:
+        filters["interval_status"] = interval_status
+    return filters

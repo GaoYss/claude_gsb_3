@@ -41,6 +41,11 @@
       <StatCard label="养护任务" :value="formatNumber(taskTotal)" unit="项"
                 :hint="`已完成 ${statistics.task_status.completed || 0} 项，进行中 ${(statistics.task_status.in_progress || 0) + (statistics.task_status.pending || 0)} 项`"
                 tone="info" icon="Tickets" />
+      <StatCard label="施药记录" :value="formatNumber(statistics.application_count)" unit="次"
+                :hint="statistics.active_interval_count
+                  ? `${formatNumber(statistics.active_interval_count)} 处仍在安全间隔期内，暂勿进入`
+                  : `最近施药 ${formatDate(statistics.last_application_date)}`"
+                :tone="statistics.active_interval_count ? 'danger' : 'default'" icon="Aim" />
     </div>
 
     <div class="panel">
@@ -127,6 +132,41 @@
             </el-tag>
           </div>
         </el-tab-pane>
+
+        <el-tab-pane label="近期施药记录" name="applications">
+          <div class="tab-actions">
+            <el-button link type="primary" @click="goList('applications')">查看全部施药记录</el-button>
+          </div>
+          <el-alert v-if="activeIntervals.length" type="error" :closable="false" show-icon class="interval-alert">
+            <template #title>
+              该绿地当前有 {{ activeIntervals.length }} 处区域仍在安全间隔期内，最早可进入时间见下表，请暂缓安排人员进入作业。
+            </template>
+          </el-alert>
+          <el-table :data="recentApplications" size="small" empty-text="暂无施药记录"
+                    :row-class-name="appRowClass">
+            <el-table-column prop="application_no" label="单号" width="160" />
+            <el-table-column prop="applied_at" label="施药时间" width="135" />
+            <el-table-column prop="pesticide_name" label="药剂" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="target_pest" label="防治对象" width="100" />
+            <el-table-column label="用药量" width="110">
+              <template #default="{ row }">{{ formatNumber(row.dosage) }} {{ row.unit_label }}</template>
+            </el-table-column>
+            <el-table-column prop="operator" label="施药人员" width="130" />
+            <el-table-column label="最早可进入" width="150">
+              <template #default="{ row }">
+                <span :class="row.is_within_interval ? 'reentry-locked' : 'reentry-ok'">
+                  {{ row.earliest_reentry_at }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="90" align="center">
+              <template #default="{ row }">
+                <EnumTag group="application_status" :value="row.reentry_status"
+                         :label="row.is_within_interval ? '间隔期内' : '可进入'" />
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -153,15 +193,25 @@ const loading = ref(false)
 const activeTab = ref('tasks')
 
 const space = ref({})
-const statistics = ref({ task_status: {}, record_count: 0, total_work_hours: 0, replacement_count: 0, replacement_quantity: 0, replacement_amount: 0 })
+const statistics = ref({
+  task_status: {}, record_count: 0, total_work_hours: 0,
+  replacement_count: 0, replacement_quantity: 0, replacement_amount: 0,
+  application_count: 0, last_application_date: null, active_interval_count: 0,
+})
 const recentTasks = ref([])
 const recentRecords = ref([])
 const recentReplacements = ref([])
+const recentApplications = ref([])
+const activeIntervals = ref([])
 const replacementSummary = ref([])
 
 const taskTotal = computed(() =>
   Object.values(statistics.value.task_status || {}).reduce((sum, value) => sum + value, 0),
 )
+
+function appRowClass({ row }) {
+  return row.is_within_interval ? 'row-locked' : ''
+}
 
 async function load() {
   loading.value = true
@@ -172,6 +222,8 @@ async function load() {
     recentTasks.value = data.recent_tasks || []
     recentRecords.value = data.recent_records || []
     recentReplacements.value = data.recent_replacements || []
+    recentApplications.value = data.recent_applications || []
+    activeIntervals.value = data.active_intervals || []
     replacementSummary.value = data.replacement_summary || []
   } finally {
     loading.value = false
@@ -182,6 +234,7 @@ const LIST_ROUTES = {
   tasks: 'task-list',
   records: 'record-list',
   replacements: 'replacement-list',
+  applications: 'pesticide-application-list',
 }
 
 function goList(name) {
@@ -208,5 +261,22 @@ onMounted(load)
 
 .summary-tag {
   margin-right: 4px;
+}
+
+.interval-alert {
+  margin-bottom: 10px;
+}
+
+.reentry-locked {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.reentry-ok {
+  color: #67c23a;
+}
+
+:deep(.row-locked) {
+  background-color: #fef6f6;
 }
 </style>

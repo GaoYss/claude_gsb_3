@@ -36,6 +36,11 @@ class GreenSpace(TimestampMixin, db.Model):
     replacements = db.relationship(
         "PlantReplacement", back_populates="green_space", cascade="all, delete-orphan"
     )
+    pesticide_applications = db.relationship(
+        "PesticideApplication", back_populates="green_space", cascade="all, delete-orphan"
+    )
+    # 出入库流水对绿地为 SET NULL：删除绿地时由 ORM 解除关联、保留领用履历
+    stock_movements = db.relationship("PesticideStockMovement", back_populates="green_space")
 
     def to_brief(self):
         """下拉框与关联展示用的精简结构。"""

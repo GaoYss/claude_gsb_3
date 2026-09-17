@@ -1,6 +1,6 @@
 <template>
   <div class="page" v-loading="loading">
-    <PageHeader title="养护总览" description="绿地台账、养护任务、养护记录与绿植更换的整体运行情况">
+    <PageHeader title="养护总览" description="绿地台账、养护任务、养护记录、绿植更换与药剂安全管控的整体运行情况">
       <template #actions>
         <el-button :icon="'Refresh'" @click="load">刷新数据</el-button>
       </template>
@@ -49,6 +49,23 @@
         :hint="`今年 ${formatCurrency(overview.replacement.year_amount)}，共 ${formatNumber(overview.replacement.total)} 次`"
         tone="info"
         icon="Money"
+      />
+      <StatCard
+        label="在档药剂"
+        :value="formatNumber(overview.pesticide.total)"
+        unit="种"
+        :hint="`累计施药 ${formatNumber(overview.pesticide.application_total)} 次，本月 ${formatNumber(overview.pesticide.month_application_count)} 次`"
+        icon="Box"
+      />
+      <StatCard
+        label="间隔期内区域"
+        :value="formatNumber(overview.pesticide.active_interval_count)"
+        unit="处"
+        :hint="overview.pesticide.active_interval_count
+          ? '暂不可进入，禁止安排人员作业'
+          : '当前无处于安全间隔期内的区域'"
+        :tone="overview.pesticide.active_interval_count ? 'danger' : 'default'"
+        icon="WarningFilled"
       />
     </div>
 
@@ -100,6 +117,53 @@
           </el-table-column>
           <el-table-column label="更换量" width="100">
             <template #default="{ row }">{{ formatNumber(row.replacement_quantity) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <div class="dashboard-columns">
+      <div class="panel">
+        <div class="table-toolbar">
+          <span class="panel-title">安全间隔期内的施药区域</span>
+          <el-link type="primary" :underline="false" @click="router.push('/pesticide-applications')">
+            进入施药记录
+          </el-link>
+        </div>
+        <el-table :data="dashboard.pesticide_reminders.active_intervals" size="small"
+                  empty-text="当前无处于间隔期内的区域">
+          <el-table-column label="施药区域" min-width="150" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.green_space?.name || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="pesticide_name" label="药剂" min-width="130" show-overflow-tooltip />
+          <el-table-column prop="applied_at" label="施药时间" width="120" />
+          <el-table-column label="最早可进入" width="135">
+            <template #default="{ row }">
+              <span class="reentry-locked">{{ row.earliest_reentry_at }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <div class="panel">
+        <div class="table-toolbar">
+          <span class="panel-title">药剂库存预警</span>
+          <el-link type="primary" :underline="false" @click="router.push('/pesticides')">
+            进入药剂档案
+          </el-link>
+        </div>
+        <el-table :data="dashboard.pesticide_reminders.low_stock" size="small" empty-text="暂无库存预警">
+          <el-table-column prop="code" label="编号" width="120" />
+          <el-table-column prop="name" label="药剂名称" min-width="150" show-overflow-tooltip />
+          <el-table-column label="当前库存" width="130" align="right">
+            <template #default="{ row }">
+              <span class="reentry-locked">
+                {{ formatNumber(row.stock_quantity) }} {{ row.unit_label }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="预警阈值" width="110" align="right">
+            <template #default="{ row }">{{ formatNumber(row.stock_low_threshold) }} {{ row.unit_label }}</template>
           </el-table-column>
         </el-table>
       </div>
@@ -177,6 +241,8 @@ function emptyDashboard() {
       task: { total: 0, open_count: 0, overdue_count: 0, due_soon_count: 0, completion_rate: 0, by_status: {} },
       record: { total: 0, month_count: 0, month_work_hours: 0, total_work_hours: 0 },
       replacement: { total: 0, month_count: 0, month_quantity: 0, month_amount: 0, year_amount: 0, total_amount: 0 },
+      pesticide: { total: 0, low_stock_count: 0, application_total: 0,
+                   month_application_count: 0, active_interval_count: 0 },
     },
     distributions: {
       green_space_by_type: [],
@@ -188,6 +254,7 @@ function emptyDashboard() {
     ranking: [],
     overdue_tasks: [],
     upcoming_tasks: [],
+    pesticide_reminders: { low_stock: [], active_intervals: [] },
     recent_activity: { records: [], replacements: [] },
   }
 }
@@ -256,6 +323,11 @@ onMounted(load)
 }
 
 .overdue-days {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.reentry-locked {
   color: #f56c6c;
   font-weight: 600;
 }

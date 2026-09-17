@@ -3,6 +3,11 @@
 from .green_space_service import GreenSpaceService
 from .maintenance_record_service import MaintenanceRecordService
 from .maintenance_task_service import MaintenanceTaskService
+from .pesticide_service import (
+    PesticideApplicationService,
+    PesticideService,
+    PesticideStockMovementService,
+)
 from .plant_replacement_service import PlantReplacementService
 from .statistics_service import StatisticsService
 
@@ -11,5 +16,8 @@ __all__ = [
     "MaintenanceTaskService",
     "MaintenanceRecordService",
     "PlantReplacementService",
+    "PesticideService",
+    "PesticideStockMovementService",
+    "PesticideApplicationService",
     "StatisticsService",
 ]

@@ -21,6 +21,11 @@ const TAG_TYPES = {
   quality_result: { qualified: 'success', pending: 'warning', unqualified: 'danger' },
   maintenance_grade: { level1: 'success', level2: 'primary', level3: 'info' },
   replacement_reason: { dead: 'danger', disease: 'warning', aging: 'info', upgrade: 'primary' },
+  pesticide_toxicity: {
+    micro: 'success', low: 'info', medium: 'warning', high: 'danger', very_high: 'danger',
+  },
+  stock_movement_type: { in: 'success', out: 'warning' },
+  application_status: { within_interval: 'danger', releasable: 'success' },
 }
 
 const meta = useMetaStore()

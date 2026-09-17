@@ -1,12 +1,12 @@
 """统计看板：全部使用聚合查询，不把明细数据搬到前端计算。"""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import func
 
 from ..constants import ENUM_GROUPS
 from ..extensions import db
-from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, PlantReplacement
+from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, Pesticide, PesticideApplication, PlantReplacement
 from ..models.maintenance_task import OPEN_STATUSES
 from ..utils.dates import today
 from ..utils.numbers import to_float
@@ -96,6 +96,30 @@ class StatisticsService:
             func.coalesce(func.sum(PlantReplacement.amount), 0),
         ).filter(PlantReplacement.replace_date >= year_start).one()
 
+        pesticide_total = db.session.query(func.count(Pesticide.id)).scalar() or 0
+        low_stock = (
+            db.session.query(func.count(Pesticide.id))
+            .filter(
+                Pesticide.stock_low_threshold > 0,
+                Pesticide.stock_quantity <= Pesticide.stock_low_threshold,
+            )
+            .scalar()
+            or 0
+        )
+        application_total = db.session.query(func.count(PesticideApplication.id)).scalar() or 0
+        month_applications = (
+            db.session.query(func.count(PesticideApplication.id))
+            .filter(PesticideApplication.application_date >= month_start)
+            .scalar()
+            or 0
+        )
+        active_intervals = (
+            db.session.query(func.count(PesticideApplication.id))
+            .filter(PesticideApplication.earliest_reentry_at > datetime.now())
+            .scalar()
+            or 0
+        )
+
         completed = task_status.get("completed", 0)
         return {
             "generated_at": f"{current:%Y-%m-%d}",
@@ -127,6 +151,13 @@ class StatisticsService:
                 "month_amount": to_float(month_amount) or 0,
                 "year_quantity": to_float(year_quantity) or 0,
                 "year_amount": to_float(year_amount) or 0,
+            },
+            "pesticide": {
+                "total": pesticide_total,
+                "low_stock_count": low_stock,
+                "application_total": application_total,
+                "month_application_count": month_applications,
+                "active_interval_count": active_intervals,
             },
         }
 
@@ -385,6 +416,27 @@ class StatisticsService:
             "replacements": [item.to_dict() for item in replacements],
         }
 
+    @staticmethod
+    def pesticide_reminders(limit=10):
+        """药剂安全提醒：库存预警药剂 + 当前仍在安全间隔期内的施药区域。"""
+
+        low_stock_items = (
+            db.session.query(Pesticide)
+            .filter(
+                Pesticide.stock_low_threshold > 0,
+                Pesticide.stock_quantity <= Pesticide.stock_low_threshold,
+            )
+            .order_by(Pesticide.stock_quantity.asc())
+            .limit(limit)
+            .all()
+        )
+        from .pesticide_service import PesticideApplicationService
+
+        return {
+            "low_stock": [item.to_dict() for item in low_stock_items],
+            "active_intervals": PesticideApplicationService.active_intervals(limit=limit),
+        }
+
     # ------------------------------------------------------------ 汇总入口
     @staticmethod
     def dashboard(months=6):
@@ -397,5 +449,6 @@ class StatisticsService:
             "ranking": StatisticsService.green_space_ranking(),
             "overdue_tasks": StatisticsService.overdue_tasks(),
             "upcoming_tasks": StatisticsService.upcoming_tasks(),
+            "pesticide_reminders": StatisticsService.pesticide_reminders(),
             "recent_activity": StatisticsService.recent_activity(),
         }

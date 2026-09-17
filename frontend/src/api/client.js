@@ -42,8 +42,9 @@ http.interceptors.response.use(
   (error) => {
     const status = error.response?.status ?? 0
     const apiError = toApiError(error.response?.data, status)
-    // 422 由表单逐字段提示，避免重复弹出
-    if (status !== 422) {
+    // 422 由表单逐字段提示；调用方也可在请求 config 中传 skipErrorMessage 自行处理（如 409 二次确认）
+    const silent = status !== 422 && !error.config?.skipErrorMessage
+    if (silent) {
       ElMessage.error(apiError.message)
     }
     return Promise.reject(apiError)

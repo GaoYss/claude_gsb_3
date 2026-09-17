@@ -1,11 +1,13 @@
 """绿地台账业务逻辑。"""
 
+from datetime import datetime
+
 from sqlalchemy import and_, func, or_
 
 from ..constants import ENUM_GROUPS, GREEN_SPACE_STATUS
 from ..errors import ConflictError
 from ..extensions import db
-from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, PlantReplacement
+from ..models import GreenSpace, MaintenanceRecord, MaintenanceTask, PesticideApplication, PlantReplacement
 from ..models.maintenance_task import OPEN_STATUSES
 from ..utils.dates import format_date, today
 from ..utils.numbers import to_float
@@ -216,6 +218,30 @@ class GreenSpaceService(BaseService):
             .all()
         )
 
+        application_stats = db.session.query(
+            func.count(PesticideApplication.id),
+            func.max(PesticideApplication.application_date),
+        ).filter(PesticideApplication.green_space_id == space.id).one()
+        active_applications = (
+            db.session.query(PesticideApplication)
+            .filter(
+                PesticideApplication.green_space_id == space.id,
+                PesticideApplication.earliest_reentry_at > datetime.now(),
+            )
+            .order_by(PesticideApplication.earliest_reentry_at.asc())
+            .all()
+        )
+        recent_applications = (
+            db.session.query(PesticideApplication)
+            .filter(PesticideApplication.green_space_id == space.id)
+            .order_by(
+                PesticideApplication.application_date.desc(),
+                PesticideApplication.id.desc(),
+            )
+            .limit(5)
+            .all()
+        )
+
         return {
             "green_space": space.to_dict(detail=True),
             "statistics": {
@@ -225,6 +251,9 @@ class GreenSpaceService(BaseService):
                 "replacement_count": replacement_stats[0] or 0,
                 "replacement_quantity": to_float(replacement_stats[1]) or 0,
                 "replacement_amount": to_float(replacement_stats[2]) or 0,
+                "application_count": application_stats[0] or 0,
+                "last_application_date": format_date(application_stats[1]),
+                "active_interval_count": len(active_applications),
                 "task_status": task_status,
                 "is_maintenance_overdue": (
                     record_stats[2] is None or (today() - record_stats[2]).days > 30
@@ -243,6 +272,8 @@ class GreenSpaceService(BaseService):
             "recent_tasks": [item.to_dict() for item in recent_tasks],
             "recent_records": [item.to_dict() for item in recent_records],
             "recent_replacements": [item.to_dict() for item in recent_replacements],
+            "recent_applications": [item.to_dict() for item in recent_applications],
+            "active_intervals": [item.to_dict() for item in active_applications],
         }
 
     # ------------------------------------------------------------ 写入
@@ -262,11 +293,16 @@ class GreenSpaceService(BaseService):
             .filter(PlantReplacement.green_space_id == space.id)
             .scalar()
             or 0,
+            "pesticide_application": db.session.query(func.count(PesticideApplication.id))
+            .filter(PesticideApplication.green_space_id == space.id)
+            .scalar()
+            or 0,
         }
         if sum(counts.values()) and not force:
             raise ConflictError(
                 "该绿地已存在养护任务 {maintenance_task} 条、养护记录 {maintenance_record} 条、"
-                "绿植更换记录 {plant_replacement} 条，删除将一并清除，请确认后重试".format(**counts),
+                "绿植更换记录 {plant_replacement} 条、施药记录 {pesticide_application} 条，"
+                "删除将一并清除，请确认后重试".format(**counts),
                 details=counts,
             )
         db.session.delete(space)

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from ..constants import EnumGroup
 from ..errors import ValidationError
-from ..utils.dates import parse_date
+from ..utils.dates import parse_date, parse_time
 from ..utils.numbers import to_decimal
 
 PHONE_PATTERN = re.compile(r"^[0-9+\-() ]{6,24}$")
@@ -111,6 +111,36 @@ class PayloadValidator:
             self.clean[field] = parse_date(value, label)
         except ValueError as exc:
             self._fail(field, str(exc))
+        return self
+
+    def time(self, field, label, *, required=False, default=None):
+        if not self._provided(field):
+            return self._skip(field, label, required, default)
+        value = self.raw[field]
+        if self._blank(value):
+            if required:
+                self._fail(field, f"{label}不能为空")
+            else:
+                self.clean[field] = None
+            return self
+        try:
+            self.clean[field] = parse_time(value, label)
+        except ValueError as exc:
+            self._fail(field, str(exc))
+        return self
+
+    def boolean(self, field, label, *, default=False):
+        if not self._provided(field):
+            if default is not None:
+                self.clean[field] = default
+            return self
+        value = self.raw[field]
+        if isinstance(value, bool):
+            self.clean[field] = value
+        elif isinstance(value, str):
+            self.clean[field] = value.strip().lower() in {"1", "true", "yes", "y"}
+        else:
+            self.clean[field] = bool(value)
         return self
 
     def number(self, field, label, *, required=False, default=None, min_value=None, max_value=None,

@@ -5,17 +5,21 @@
 """
 
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import click
 from flask.cli import with_appcontext
 
+from .errors import ConflictError
 from .extensions import db
 from .models import GreenSpace
 from .services import (
     GreenSpaceService,
     MaintenanceRecordService,
     MaintenanceTaskService,
+    PesticideApplicationService,
+    PesticideService,
+    PesticideStockMovementService,
     PlantReplacementService,
 )
 
@@ -164,6 +168,29 @@ WEATHERS = ["sunny", "cloudy", "overcast", "rain", "windy"]
 WORKERS = ["王海涛", "李建民", "张凤英", "吴国强", "何丽萍", "赵春生", "孙明华", "许娟"]
 SUPPLIERS = ["萧山苗木合作社", "临安绿源苗圃", "余杭花卉基地", "杭州城西园艺公司"]
 
+# (名称, 类别, 毒性, 剂型, 有效成分, 单位, 期初库存, 预警阈值, 安全间隔期天, 防治对象)
+PESTICIDE_SEEDS = [
+    ("吡虫啉可湿性粉剂", "insecticide", "low", "wp", "吡虫啉 10%", "bag",
+     120, 20, 7, "蚜虫、飞虱、网蝽"),
+    ("阿维菌素乳油", "insecticide", "medium", "ec", "阿维菌素 1.8%", "bottle",
+     48, 10, 10, "红蜘蛛、潜叶蛾"),
+    ("多菌灵可湿性粉剂", "fungicide", "low", "wp", "多菌灵 50%", "bag",
+     86, 15, 7, "白粉病、叶斑病"),
+    ("甲基硫菌灵悬浮剂", "fungicide", "low", "sc", "甲基硫菌灵 70%", "bottle",
+     30, 8, 14, "炭疽病、腐烂病"),
+    ("草甘膦水剂", "herbicide", "low", "sl", "草甘膦 41%", "can",
+     24, 5, 14, "多种一年生杂草"),
+    ("苏云金杆菌悬浮剂", "biological", "micro", "sc", "Bt 8000IU/μl", "bottle",
+     36, 8, 5, "鳞翅目食叶害虫"),
+    ("高效氯氟氰菊酯乳油", "insecticide", "medium", "ec", "高效氯氟氰菊酯 2.5%", "bottle",
+     8, 10, 12, "刺蛾、尺蠖、蚜虫"),
+]
+
+PESTICIDE_TARGETS = ["蚜虫", "红蜘蛛", "网蝽", "白粉病", "叶斑病", "炭疽病", "介壳虫", "斜纹夜蛾"]
+APPLICATION_METHODS = ["spray", "spray", "spray", "soil", "injection"]
+DILUTION_RATIOS = ["1:1000", "1:1500", "1:2000", "1:800", "1:3000"]
+PESTICIDE_OPERATORS = ["植保班·吴国强", "植保班·何丽萍", "绿化应急组·赵春生"]
+
 
 def register_cli(app):
     app.cli.add_command(init_db_command)
@@ -207,7 +234,9 @@ def seed_command(reset, seed_value):
     summary = generate_demo_data(random.Random(seed_value))
     click.echo(
         "演示数据写入完成：绿地 {green_space} 处、养护任务 {maintenance_task} 条、"
-        "养护记录 {maintenance_record} 条、绿植更换 {plant_replacement} 条".format(**summary)
+        "养护记录 {maintenance_record} 条、绿植更换 {plant_replacement} 条、"
+        "药剂档案 {pesticide} 种、出入库 {pesticide_stock_movement} 条、"
+        "施药记录 {pesticide_application} 条".format(**summary)
     )
 
 
@@ -220,11 +249,16 @@ def generate_demo_data(rng):
         "maintenance_task": 0,
         "maintenance_record": 0,
         "plant_replacement": 0,
+        "pesticide": 0,
+        "pesticide_stock_movement": 0,
+        "pesticide_application": 0,
     }
+    spaces = []
 
     for index, space_seed in enumerate(SPACE_SEEDS):
         payload = dict(space_seed)
         space = GreenSpaceService.create(payload)
+        spaces.append(space)
         counts["green_space"] += 1
 
         # 已归档绿地不允许再登记任务与记录，仅保留台账
@@ -322,6 +356,116 @@ def generate_demo_data(rng):
             "status": "cancelled",
         })
         counts["maintenance_task"] += 1
+
+    # ------------------------------------------------ 药剂档案
+    active_spaces = [space for space in spaces if space.status != "archived"]
+    pesticides = []
+    for (
+        name, ptype, toxicity, form, ingredient, unit,
+        opening, threshold, interval, targets,
+    ) in PESTICIDE_SEEDS:
+        pesticide = PesticideService.create({
+            "name": name,
+            "pesticide_type": ptype,
+            "toxicity": toxicity,
+            "form": form,
+            "active_ingredient": ingredient,
+            "registration_no": f"PD{20240000 + len(pesticides) * 37 % 80000:06d}",
+            "manufacturer": rng.choice(SUPPLIERS),
+            "unit": unit,
+            "stock_quantity": opening,
+            "stock_low_threshold": threshold,
+            "safety_interval_days": interval,
+            "target_pests": targets,
+            "storage_condition": "阴凉干燥、通风上锁的专用药柜，远离食品与火源",
+        })
+        pesticides.append(pesticide)
+        counts["pesticide"] += 1
+
+    # 历史入库补货流水（先补库，再为后续施药做领用扣减）
+    for pesticide in pesticides[:5]:
+        PesticideStockMovementService.create({
+            "pesticide_id": pesticide.id,
+            "movement_type": "in",
+            "quantity": rng.choice([20, 24, 30, 40]),
+            "movement_date": today_ - timedelta(days=rng.randint(30, 90)),
+            "receiver": "药库管理员·孙明华",
+            "purpose": "季度药剂集中采购入库",
+            "operator": "孙明华",
+        })
+        counts["pesticide_stock_movement"] += 1
+
+    def _record_application(pesticide, space, app_date, *, moment=None, confirm=False):
+        """登记一条施药记录，并尽量补登对应的领用出库（库存不足时跳过领用）。"""
+
+        payload = {
+            "green_space_id": space.id,
+            "pesticide_id": pesticide.id,
+            "location": rng.choice(["", "东区草坪", "南门主入口花境", "沿河绿篱带", "北侧行道树池"]),
+            "application_date": app_date,
+            "application_time": moment,
+            "target_pest": rng.choice(PESTICIDE_TARGETS),
+            "application_method": rng.choice(APPLICATION_METHODS),
+            "dilution_ratio": rng.choice(DILUTION_RATIOS),
+            "dosage": rng.choice([2, 3, 4, 5, 6]),
+            "treated_area": rng.choice([600, 1200, 2400, 3200, 5000]),
+            "operator": rng.choice(PESTICIDE_OPERATORS),
+            "weather": rng.choice(WEATHERS),
+        }
+        application = None
+        for confirmed in (confirm, True):
+            try:
+                application = PesticideApplicationService.create_application(payload, confirm=confirmed)
+                break
+            except ConflictError as exc:
+                # 常规施药碰巧落在该区域上一次施药的间隔期内：经安全确认后继续登记
+                if not getattr(exc, "details", None) or not exc.details.get("confirm_required"):
+                    raise
+        counts["pesticide_application"] += 1
+
+        try:
+            PesticideStockMovementService.create({
+                "pesticide_id": pesticide.id,
+                "movement_type": "out",
+                "quantity": application.dosage,
+                "movement_date": app_date,
+                "receiver": application.operator,
+                "green_space_id": space.id,
+                "purpose": f"施药领用：{application.target_pest}防治",
+                "operator": "孙明华",
+            })
+            counts["pesticide_stock_movement"] += 1
+        except ConflictError:
+            # 库存不足的药剂领用会被业务规则拒绝，施药履历仍保留
+            pass
+        return application
+
+    # 常规施药：过去两个月在各绿地分散登记
+    for pesticide in pesticides:
+        for _ in range(rng.randint(2, 4)):
+            space = rng.choice(active_spaces)
+            app_date = today_ - timedelta(days=rng.randint(20, 75))
+            moment = time(hour=rng.choice([7, 8, 9, 15, 16]), minute=rng.choice([0, 30]))
+            _record_application(pesticide, space, app_date, moment=moment)
+
+    # 安全管控场景：同一区域间隔期内重复施药（首条仍在间隔期，第二条经安全确认后登记）
+    if active_spaces and len(pesticides) >= 4:
+        focus_space = active_spaces[0]
+        long_interval = next((p for p in pesticides if p.safety_interval_days >= 12), pesticides[1])
+        _record_application(
+            long_interval, focus_space, today_ - timedelta(days=3),
+            moment=time(hour=8, minute=30),
+        )
+        another = pesticides[2] if pesticides[2] != long_interval else pesticides[3]
+        _record_application(
+            another, focus_space, today_ - timedelta(days=1),
+            moment=time(hour=16, minute=0), confirm=True,
+        )
+        # 一条今日施药、间隔期较长的记录，保证看板始终有“暂不可进入”区域
+        _record_application(
+            long_interval, active_spaces[-1], today_,
+            moment=time(hour=9, minute=0),
+        )
 
     db.session.commit()
     return counts

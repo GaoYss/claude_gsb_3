@@ -3,6 +3,15 @@
 from .green_space import GreenSpace
 from .maintenance_record import MaintenanceRecord
 from .maintenance_task import MaintenanceTask
+from .pesticide import Pesticide, PesticideApplication, PesticideStockMovement
 from .plant_replacement import PlantReplacement
 
-__all__ = ["GreenSpace", "MaintenanceTask", "MaintenanceRecord", "PlantReplacement"]
+__all__ = [
+    "GreenSpace",
+    "MaintenanceTask",
+    "MaintenanceRecord",
+    "PlantReplacement",
+    "Pesticide",
+    "PesticideStockMovement",
+    "PesticideApplication",
+]

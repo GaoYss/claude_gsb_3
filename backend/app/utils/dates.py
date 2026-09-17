@@ -1,6 +1,6 @@
 """日期解析与序列化辅助。"""
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 
 def parse_date(value, field_label="日期"):
@@ -40,5 +40,46 @@ def format_datetime(value):
     return None
 
 
+def format_datetime_minute(value):
+    """分钟精度的日期时间（最早可进入时间等由日期+时刻派生的值）。"""
+
+    if isinstance(value, datetime):
+        return value.replace(second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
+    return None
+
+
 def today():
     return datetime.now().date()
+
+
+def parse_time(value, field_label="时间"):
+    """把 HH:MM 或 HH:MM:SS 解析为 time；date/datetime 直接取时间部分。"""
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.time().replace(second=0, microsecond=0)
+    if isinstance(value, time):
+        return value.replace(second=0, microsecond=0)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        for fmt in ("%H:%M", "%H:%M:%S"):
+            try:
+                return datetime.strptime(text, fmt).time().replace(second=0, microsecond=0)
+            except ValueError:
+                continue
+    raise ValueError(f"{field_label}格式应为 HH:MM")
+
+
+def format_time(value):
+    if isinstance(value, time):
+        return value.replace(second=0, microsecond=0).strftime("%H:%M")
+    return None
+
+
+def at_time(day, moment=None):
+    """把日期与可选时刻合并为 datetime；时刻缺省按当日 00:00 计。"""
+
+    return datetime.combine(day, moment or time.min)
